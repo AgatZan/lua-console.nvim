@@ -1,13 +1,54 @@
 local config, mappings, utils
 
+local deactivate = function()
+  if Lua_console and vim.api.nvim_buf_is_valid(Lua_console.buf or -1) then
+    vim.api.nvim_buf_delete(Lua_console.buf, { force = true })
+  end
+
+  Lua_console = nil --luacheck: ignore
+
+  package.loaded['lua-console'] = nil
+  package.loaded['lua-console.config'] = nil
+  package.loaded['lua-console.mappings'] = nil
+  package.loaded['lua-console.utils'] = nil
+end
+
+local get_win_size_pos = function()
+  local height = vim.o.lines
+  local width = vim.o.columns
+
+  return {
+    row = height - 1,
+    col = 0,
+    width = width - 2,
+    height = (Lua_console.height > 0) and Lua_console.height or math.floor(height * config.window.height),
+  }
+end
+
+local create_window = function()
+  local win_config = vim.tbl_extend('force', config.window, get_win_size_pos())
+  local win = vim.api.nvim_open_win(Lua_console.buf, true, win_config)
+
+  vim.wo[win].foldcolumn = 'auto:9'
+  vim.wo[win].cursorline = true
+  vim.wo[win].foldmethod = 'indent'
+  vim.wo[win].winbar = ''
+
+  vim.api.nvim_win_set_cursor(win, { vim.fn.line('.'), 0 })
+
+  Lua_console.win = win
+end
+
 local get_or_create_buffer = function()
   --- @type number
   local buf = Lua_console.buf
+  -- stylua: ignore
   if buf and vim.fn.bufloaded(buf) == 1 then return end
 
-  local buf_name = utils.get_plugin_path()..'/console'
+  local buf_name = utils.get_plugin_path() .. '/console'
 
   buf = vim.fn.bufnr(buf_name)
+  -- stylua: ignore
   if buf ~= -1 then vim.api.nvim_buf_delete(buf, { force = true }) end
 
   buf = vim.api.nvim_create_buf(false, false)
@@ -26,33 +67,8 @@ local get_or_create_buffer = function()
   mappings.set_buf_keymap()
   mappings.set_buf_autocommands()
 
+  -- stylua: ignore
   if config.buffer.load_on_start then utils.load_console() end
-end
-
-local get_win_size_pos = function()
-  local height = vim.o.lines
-  local width = vim.o.columns
-
-  return {
-    row = height - 1,
-    col = 0,
-    width = width - 2,
-    height = (Lua_console.height > 0) and Lua_console.height or math.floor(height * config.window.height)
-  }
-end
-
-local create_window = function()
-  local win_config = vim.tbl_extend('force', config.window, get_win_size_pos())
-  local win = vim.api.nvim_open_win(Lua_console.buf, true, win_config)
-
-  vim.wo[win].foldcolumn = 'auto:9'
-  vim.wo[win].cursorline = true
-  vim.wo[win].foldmethod = 'indent'
-  vim.wo[win].winbar = ''
-
-  vim.api.nvim_win_set_cursor(win, { vim.fn.line('.') , 0 })
-
-  Lua_console.win = win
 end
 
 local toggle_console = function()
@@ -68,33 +84,20 @@ end
 local setup = function(opts)
   _G.Lua_console = { buf = false, win = false, height = 0 }
 
-  config = require("lua-console.config").setup(opts)
-  mappings = require("lua-console.mappings")
-  utils = require("lua-console.utils")
+  config = require('lua-console.config').setup(opts)
+  mappings = require('lua-console.mappings')
+  utils = require('lua-console.utils')
 
-  vim.keymap.set("n", config.mappings.toggle, "", {
+  vim.keymap.set('n', config.mappings.toggle, '', {
     callback = toggle_console,
-    desc = "Toggle Lua console"
+    desc = 'Toggle Lua console',
   })
 
   return config
 end
 
-local deactivate = function()
-  if Lua_console and vim.api.nvim_buf_is_valid(Lua_console.buf or -1) then
-    vim.api.nvim_buf_delete(Lua_console.buf, { force = true } )
-  end
-
-  Lua_console = nil --luacheck: ignore
-
-	package.loaded['lua-console'] = nil
-	package.loaded['lua-console.config'] = nil
-	package.loaded['lua-console.mappings'] = nil
-	package.loaded['lua-console.utils'] = nil
-end
-
- return {
-  toggle_console = toggle_console,
+return {
   setup = setup,
+  toggle_console = toggle_console,
   deactivate = deactivate,
 }
