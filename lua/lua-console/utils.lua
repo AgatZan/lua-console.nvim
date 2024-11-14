@@ -16,16 +16,17 @@ local toggle_help = function()
     vim.api.nvim_buf_del_extmark(0, ns, ids[1][1])
     return
   end
-  
+
   local cm = config.mappings
   local message = [['%s' - eval a line or selection, '%s' - clear the console, '%s' - load messages, '%s' - save console, '%s' - load console, '%s'/'%s - resize window, '%s' - toggle help]]
   message = string.format(message, cm.eval, cm.clear, cm.messages, cm.save, cm.load, cm.resize_up, cm.resize_down, cm.help)
 
-  vim.api.nvim_buf_set_extmark(0, ns, 0, 0, { id=1, virt_text = { { message, 'Comment' } }, virt_text_pos = 'overlay', undo_restore = false, invalidate = true })
+  vim.api.nvim_buf_set_extmark(0, ns, 0, 0, { id = 1, virt_text = { { message, 'Comment' } }, virt_text_pos = 'overlay', undo_restore = false, invalidate = true })
 end
 
 ---Loads saved console
 local load_console = function()
+  -- stylua: ignore
   if vim.fn.filereadable(config.buffer.save_path) == 0 then return end
   local file = vim.fn.readfile(config.buffer.save_path)
   vim.api.nvim_buf_set_lines(Lua_console.buf, 0, -1, false, file)
@@ -51,15 +52,17 @@ local append_current_buffer = function(lines)
 end
 
 ---Pretty prints objects
----@param ... any[]
-local pretty_print = function(...)
+---@param opts any[]
+local pretty_print = function(opts)
   local result, var_no = '', ''
-  local nargs = select('#', ...)
+  local nargs = #opts
 
-  for i=1, nargs do
-    local o = select(i, ...)
+  for i = 1, nargs do
+    local o = opts[i]
 
+  -- stylua: ignore
     if i > 1 then result = result .. ', ' end
+  -- stylua: ignore
     if nargs > 1 then var_no = string.format('[%s] ', i) end
 
     o = type(o) == 'function' and debug.getinfo(o) or o
@@ -71,6 +74,7 @@ local pretty_print = function(...)
 end
 
 local function remove_empty_lines(tbl)
+  -- stylua: ignore
   return vim.tbl_filter(function(el) return vim.fn.trim(el) ~= '' end, tbl)
 end
 
@@ -81,7 +85,7 @@ local function clean_stacktrace(error)
   for i = #lines, 1, -1 do
     if lines[i]:find('lua-console.nvim', 1, true) then
       table.remove(lines, i)
-      if lines[i-1]:find("[C]: in function 'xpcall'", 1, true) then
+      if lines[i - 1]:find("[C]: in function 'xpcall'", 1, true) then
         table.remove(lines, i - 1)
         break
       end
@@ -94,6 +98,7 @@ local function clean_stacktrace(error)
 end
 
 local function add_return(tbl)
+  -- stylua: ignore
   if vim.fn.trim(tbl[#tbl]) == 'end' then return tbl end
 
   local ret = vim.deepcopy(tbl)
@@ -106,9 +111,10 @@ end
 --- @param lines string[] table with lines of Lua code
 --- @return string[]
 local eval_lua = function(lines)
-  vim.validate({ lines = { lines, 'table'} })
+  vim.validate({ lines = { lines, 'table' } })
 
   lines = remove_empty_lines(lines)
+  -- stylua: ignore
   if vim.tbl_isempty(lines) then return {} end
 
   local env = setmetatable({ print = pretty_print }, { __index = _G })
@@ -118,13 +124,15 @@ local eval_lua = function(lines)
     lines = lines_with_return
   end
 
-  local code, error = load(to_string(lines), 'Lua console: ', "t", env)
+  local code, error = load(to_string(lines), 'Lua console: ', 't', env)
+  -- stylua: ignore
   if error then return to_table(error) end
 
-	print_buffer = {}
+  print_buffer = {}
 
   ---@cast code function
   local status, result = xpcall(code, debug.traceback)
+  -- stylua: ignore
   if not status then return clean_stacktrace(result) end
 
   pretty_print(result)
@@ -133,10 +141,10 @@ end
 
 ---Evaluates lua in the current line or visual selections and appends to current buffer
 local eval_lua_in_buffer = function()
-  local buf  = vim.fn.bufnr()
+  local buf = vim.fn.bufnr()
 
-  if vim.api.nvim_get_mode().mode == "V" then
-    vim.api.nvim_input("<Esc>")
+  if vim.api.nvim_get_mode().mode == 'V' then
+    vim.api.nvim_input('<Esc>')
   end
 
   local v_start, v_end = vim.fn.line('.'), vim.fn.line('v')
@@ -147,29 +155,32 @@ local eval_lua_in_buffer = function()
   local lines = vim.api.nvim_buf_get_lines(buf, v_start - 1, v_end, false)
   local result = eval_lua(lines)
 
+  -- stylua: ignore
   if not vim.tbl_isempty(result) then append_current_buffer(result) end
 end
 
 ---Load messages into console
 local load_messages = function()
-	local ns = vim.api.nvim_create_namespace('Lua-console')
+  local ns = vim.api.nvim_create_namespace('Lua-console')
 
-	---This way we catch the output of messages command, in case it was overriden by some other plugin, like Noice
-	vim.ui_attach(ns, { ext_messages = true }, function(event, entries) ---@diagnostic disable-line
-		if event ~= "msg_history_show" then return end
+  ---This way we catch the output of messages command, in case it was overriden by some other plugin, like Noice
+  -- stylua: ignore start
+  vim.ui_attach(ns, { ext_messages = true }, function(event, entries) ---@diagnostic disable-line
+    if event ~= "msg_history_show" then return end
     local messages = vim.tbl_map(function(e) return e[2][1][2] end, entries)
-	  if not vim.tbl_isempty(messages) then append_current_buffer(messages) end
-	end)
+	if not vim.tbl_isempty(messages) then append_current_buffer(messages) end
+    -- stylua: ignore end
+  end)
 
-	vim.cmd.messages()
-	vim.ui_detach(ns)
+  vim.cmd.messages()
+  vim.ui_detach(ns)
 end
 
 local get_plugin_path = function()
   local path = debug.getinfo(1, 'S').source
   local _, pos = path:find('lua%-console.nvim')
 
-  return path:sub(2,pos)
+  return path:sub(2, pos)
 end
 
 return {
