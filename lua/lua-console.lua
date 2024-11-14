@@ -1,4 +1,8 @@
 local config, mappings, utils
+---@class Lua_console
+---@field buf false|integer
+---@field win false|integer
+---@field height integer
 
 local deactivate = function()
   if Lua_console and vim.api.nvim_buf_is_valid(Lua_console.buf or -1) then
@@ -40,7 +44,6 @@ local create_window = function()
 end
 
 local get_or_create_buffer = function()
-  --- @type number
   local buf = Lua_console.buf
   -- stylua: ignore
   if buf and vim.fn.bufloaded(buf) == 1 then return end
@@ -82,6 +85,7 @@ local toggle_console = function()
 end
 
 local setup = function(opts)
+  ---@type Lua_console?
   _G.Lua_console = { buf = false, win = false, height = 0 }
 
   config = require('lua-console.config').setup(opts)
