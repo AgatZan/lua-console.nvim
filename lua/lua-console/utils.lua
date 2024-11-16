@@ -52,13 +52,13 @@ local append_current_buffer = function(lines)
 end
 
 ---Pretty prints objects
----@param opts any[]
-local pretty_print = function(opts)
+---@param ... any[]
+local pretty_print = function(...)
   local result, var_no = '', ''
-  local nargs = #opts
+  local nargs = select('#', ...)
 
   for i = 1, nargs do
-    local o = opts[i]
+    local o = select(i, ...)
 
   -- stylua: ignore
     if i > 1 then result = result .. ', ' end
